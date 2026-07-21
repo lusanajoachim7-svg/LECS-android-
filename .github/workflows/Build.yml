@@ -13,7 +13,7 @@ jobs:
 
       - name: Unzip project
         run: |
-          unzip -o *.zip -d .
+          unzip -o lecs-android-standalone.zip -d .
           ls -la
 
       - name: Set up JDK 17
