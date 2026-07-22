@@ -31,13 +31,10 @@ jobs:
         env:
           ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
-      - name: Find and download nodejs-mobile Android release
+      - name: Download nodejs-mobile Android AAR
         run: |
-          curl -s https://api.github.com/repos/nodejs-mobile/nodejs-mobile/releases > releases.json
-          ASSET_URL=$(grep "browser_download_url" releases.json | grep -i "android-aar" | head -1 | cut -d '"' -f4)
-          echo "Resolved ASSET_URL: [$ASSET_URL]"
-          if [ -z "$ASSET_URL" ]; then exit 1; fi
-          curl -L -o nodejs-mobile.zip "$ASSET_URL"
+          # Tumia version 0.8.1 ambayo bado inafanya kazi na LECS
+          curl -L -o nodejs-mobile.zip https://github.com/nodejs-mobile/nodejs-mobile/releases/download/v0.8.1/nodejs-mobile-android-aar-0.8.1.zip
           mkdir -p nodejs-mobile-release
           unzip -o nodejs-mobile.zip -d nodejs-mobile-release
           find nodejs-mobile-release -maxdepth 3
