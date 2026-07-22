@@ -1,4 +1,4 @@
-name: Build LECS APK
+ name: Build LECS APK
 
 on:
   workflow_dispatch:
@@ -47,9 +47,9 @@ jobs:
 
       - name: Place libnode bin/include into the app
         run: |
-          mkdir -p app/libnode
-          cp -r nodejs-mobile-release/bin app/libnode/bin
-          cp -r nodejs-mobile-release/include app/libnode/include
+          mkdir -p app/libnode/bin app/libnode/include
+          cp -r nodejs-mobile-release/bin/. app/libnode/bin/
+          cp -r nodejs-mobile-release/include/. app/libnode/include/
           find app/libnode -maxdepth 3
 
       - name: Install server dependencies (npm)
@@ -70,4 +70,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lecs-app-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/debug/app-debug.apk         
