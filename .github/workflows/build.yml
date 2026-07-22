@@ -6,6 +6,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repo
@@ -27,19 +28,15 @@ jobs:
 
       - name: Install NDK and CMake
         run: sdkmanager --install "ndk;25.2.9519653" "cmake;3.22.1"
+        env:
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
       - name: Find and download nodejs-mobile Android release
         run: |
           curl -s https://api.github.com/repos/nodejs-mobile/nodejs-mobile/releases > releases.json
-          echo "===== RELEASE TAGS FOUND ====="
-          grep '"tag_name"' releases.json
-          echo "===== END TAGS ====="
-          ASSET_URL=$(grep "browser_download_url" releases.json | grep -i android | head -1 | cut -d '"' -f4)
+          ASSET_URL=$(grep "browser_download_url" releases.json | grep -i "android-aar" | head -1 | cut -d '"' -f4)
           echo "Resolved ASSET_URL: [$ASSET_URL]"
-          if [ -z "$ASSET_URL" ]; then
-            echo "No matching asset found automatically — see the tags printed above."
-            exit 1
-          fi
+          if [ -z "$ASSET_URL" ]; then exit 1; fi
           curl -L -o nodejs-mobile.zip "$ASSET_URL"
           mkdir -p nodejs-mobile-release
           unzip -o nodejs-mobile.zip -d nodejs-mobile-release
@@ -50,24 +47,25 @@ jobs:
           mkdir -p app/libnode/bin app/libnode/include
           cp -r nodejs-mobile-release/bin/. app/libnode/bin/
           cp -r nodejs-mobile-release/include/. app/libnode/include/
-          find app/libnode -maxdepth 3
 
       - name: Install server dependencies (npm)
         run: |
           cd app/src/main/assets/nodejs-project
-          npm install --omit=dev
+          npm ci --omit=dev --legacy-peer-deps
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
 
-      - name: Install Gradle
-        run: |
-          curl -L -o gradle.zip https://services.gradle.org/distributions/gradle-8.9-bin.zip
-          unzip -q gradle.zip -d "$HOME"
-          echo "$HOME/gradle-8.9/bin" >> "$GITHUB_PATH"
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
 
       - name: Build debug APK
-        run: gradle assembleDebug --stacktrace
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        env:
+          GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx4g -Dorg.gradle.parallel=true"
+          ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/25.2.9519653
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: lecs-app-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/debug/*.apk
