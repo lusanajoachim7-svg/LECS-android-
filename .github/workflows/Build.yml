@@ -30,9 +30,16 @@ jobs:
 
       - name: Find and download nodejs-mobile Android release
         run: |
-          ASSET_URL=$(curl -s https://api.github.com/repos/nodejs-mobile/nodejs-mobile/releases/tags/nodejs-mobile-v18.20.4 \
-            | grep "browser_download_url" | grep -i android | cut -d '"' -f4)
-          echo "Downloading: $ASSET_URL"
+          curl -s https://api.github.com/repos/nodejs-mobile/nodejs-mobile/releases/tags/nodejs-mobile-v18.20.4 > release.json
+          echo "===== FULL RELEASE INFO ====="
+          cat release.json
+          echo "===== END RELEASE INFO ====="
+          ASSET_URL=$(grep "browser_download_url" release.json | grep -i android | cut -d '"' -f4)
+          echo "Resolved ASSET_URL: [$ASSET_URL]"
+          if [ -z "$ASSET_URL" ]; then
+            echo "No matching asset found automatically — see the full release info printed above to find the correct filename."
+            exit 1
+          fi
           curl -L -o nodejs-mobile.zip "$ASSET_URL"
           mkdir -p nodejs-mobile-release
           unzip -o nodejs-mobile.zip -d nodejs-mobile-release
@@ -61,4 +68,3 @@ jobs:
         with:
           name: lecs-app-debug
           path: app/build/outputs/apk/debug/app-debug.apk
-          
