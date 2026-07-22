@@ -30,14 +30,14 @@ jobs:
 
       - name: Find and download nodejs-mobile Android release
         run: |
-          curl -s https://api.github.com/repos/nodejs-mobile/nodejs-mobile/releases/tags/nodejs-mobile-v18.20.4 > release.json
-          echo "===== FULL RELEASE INFO ====="
-          cat release.json
-          echo "===== END RELEASE INFO ====="
-          ASSET_URL=$(grep "browser_download_url" release.json | grep -i android | cut -d '"' -f4)
+          curl -s https://api.github.com/repos/nodejs-mobile/nodejs-mobile/releases > releases.json
+          echo "===== RELEASE TAGS FOUND ====="
+          grep '"tag_name"' releases.json
+          echo "===== END TAGS ====="
+          ASSET_URL=$(grep "browser_download_url" releases.json | grep -i android | head -1 | cut -d '"' -f4)
           echo "Resolved ASSET_URL: [$ASSET_URL]"
           if [ -z "$ASSET_URL" ]; then
-            echo "No matching asset found automatically — see the full release info printed above to find the correct filename."
+            echo "No matching asset found automatically — see the tags printed above."
             exit 1
           fi
           curl -L -o nodejs-mobile.zip "$ASSET_URL"
