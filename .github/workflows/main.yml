@@ -11,14 +11,19 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v5
-        with:
-          repository: lusanajoachim7-svg/LECS-android-
+        uses: actions/checkout@v4
 
+      # Fails early with a readable message if the project files were
+      # uploaded into a subfolder or are missing.
+      - name: Verify project layout
+        run: |
           ls -la
+          for f in app/build.gradle build.gradle settings.gradle app/CMakeLists.txt app/src/main/java/com/lecs/app/MainActivity.java; do
+            if [ ! -f "$f" ]; then echo "MISSING: $f (files must be at the repo root, not inside an extra folder)"; exit 1; fi
+          done
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
@@ -32,24 +37,17 @@ jobs:
       - name: Install NDK and CMake
         run: sdkmanager --install "ndk;25.2.9519653" "cmake;3.22.1"
 
-      - name: Find and download nodejs-mobile Android release
+      - name: Download nodejs-mobile Android release
         run: |
           curl -s https://api.github.com/repos/nodejs-mobile/nodejs-mobile/releases > releases.json
-          echo "===== RELEASE TAGS FOUND ====="
-          grep '"tag_name"' releases.json
-          echo "===== END TAGS ====="
           ASSET_URL=$(grep "browser_download_url" releases.json | grep -i android | head -1 | cut -d '"' -f4)
           echo "Resolved ASSET_URL: [$ASSET_URL]"
-          if [ -z "$ASSET_URL" ]; then
-            echo "No matching asset found automatically — see the tags printed above."
-            exit 1
-          fi
+          if [ -z "$ASSET_URL" ]; then echo "No Android asset found"; exit 1; fi
           curl -L -o nodejs-mobile.zip "$ASSET_URL"
           mkdir -p nodejs-mobile-release
           unzip -o nodejs-mobile.zip -d nodejs-mobile-release
-          find nodejs-mobile-release -maxdepth 3
 
-      - name: Place libnode bin/include into the app
+      - name: Place libnode into the app
         run: |
           mkdir -p app/libnode/bin app/libnode/include
           cp -r nodejs-mobile-release/bin/. app/libnode/bin/
@@ -71,7 +69,8 @@ jobs:
         run: gradle assembleDebug --stacktrace
 
       - name: Upload APK
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v4
         with:
           name: app-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+          
