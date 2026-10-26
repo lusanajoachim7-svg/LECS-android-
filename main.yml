@@ -1,0 +1,86 @@
+name: build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # Supports both layouts: project files already at the repo root,
+      # or only the project zip uploaded to the repo (unzipped here).
+      - name: Unzip project if needed
+        run: |
+          if [ ! -f app/build.gradle ]; then
+            ZIP=$(ls lecs-android*.zip 2>/dev/null | head -1)
+            if [ -z "$ZIP" ]; then echo "No project files and no project zip found in repo"; ls -la; exit 1; fi
+            echo "Unzipping $ZIP"
+            unzip -o -q "$ZIP" -d .
+          fi
+
+      # Fails early with a readable message if the project files were
+      # uploaded into a subfolder or are missing.
+      - name: Verify project layout
+        run: |
+          ls -la
+          for f in app/build.gradle build.gradle settings.gradle app/CMakeLists.txt app/src/main/java/com/lecs/app/MainActivity.java; do
+            if [ ! -f "$f" ]; then echo "MISSING: $f (files must be at the repo root, not inside an extra folder)"; exit 1; fi
+          done
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 12266719
+          accept-android-sdk-licenses: true
+
+      - name: Install NDK and CMake
+        run: sdkmanager --install "ndk;25.2.9519653" "cmake;3.22.1"
+
+      - name: Download nodejs-mobile Android release
+        run: |
+          curl -s https://api.github.com/repos/nodejs-mobile/nodejs-mobile/releases > releases.json
+          ASSET_URL=$(grep "browser_download_url" releases.json | grep -i android | head -1 | cut -d '"' -f4)
+          echo "Resolved ASSET_URL: [$ASSET_URL]"
+          if [ -z "$ASSET_URL" ]; then echo "No Android asset found"; exit 1; fi
+          curl -L -o nodejs-mobile.zip "$ASSET_URL"
+          mkdir -p nodejs-mobile-release
+          unzip -o nodejs-mobile.zip -d nodejs-mobile-release
+
+      - name: Place libnode into the app
+        run: |
+          mkdir -p app/libnode/bin app/libnode/include
+          cp -r nodejs-mobile-release/bin/. app/libnode/bin/
+          cp -r nodejs-mobile-release/include/. app/libnode/include/
+          find app/libnode -maxdepth 3
+
+      - name: Install server dependencies (npm)
+        run: |
+          cd app/src/main/assets/nodejs-project
+          npm install --omit=dev
+
+      - name: Install Gradle
+        run: |
+          curl -L -o gradle.zip https://services.gradle.org/distributions/gradle-8.0-bin.zip
+          unzip -q gradle.zip -d "$HOME"
+          echo "$HOME/gradle-8.0/bin" >> "$GITHUB_PATH"
+
+      - name: Build debug APK
+        run: gradle assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
